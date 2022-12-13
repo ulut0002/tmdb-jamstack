@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Search movies</title>
+    <link rel="stylesheet" href="./css/main.css" />
+    <script src="./js/main.js" defer type="module"></script>
+  </head>
+  <body id="credits">
+    <header class="header">
+      <div class="container">
+        <h1>JAMStack Media App</h1>
+        <section class="search">
+          <form data-jamstack="form" class="nav__search">
+            <div>
+              <div>
+                <input
+                  type="radio"
+                  id="tv"
+                  name="filter"
+                  value="tv"
+                  data-jamstack="search-tv"
+                />
+                <label for="tv">TV</label>
+              </div>
+
+              <div>
+                <input
+                  type="radio"
+                  id="movie"
+                  name="filter"
+                  value="movie"
+                  data-jamstack="search-movie"
+                />
+                <label for="movie">Movie</label>
+              </div>
+            </div>
+
+            <div>
+              <label for="movieField" class="visuallyHidden">Movie</label>
+              <input
+                type="text"
+                data-jamstack="search-input"
+                class="nav__search__name"
+                placeholder="Enter a movie name"
+              />
+            </div>
+            <div>
+              <button type="submit" class="btn btn--search" aria-label="Search">
+                <i class="bi bi-search"></i>
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </header>
+    <main>
+      <div class="container">
+        <div
+          class="message-container"
+          id="message-container"
+          data-jamstack="message"
+        ></div>
+        <div class="error-container" data-jamstack="error"></div>
+        <div class="credit-result-container" data-jamstack="result">
+          <div class="pagination-container" data-jamstack="pagination"></div>
+          <div class="result-header" data-jamstack="result-header"></div>
+          <div class="pagination-container" data-jamstack="pagination"></div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
