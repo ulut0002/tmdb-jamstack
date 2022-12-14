@@ -37,7 +37,7 @@ const UTILITY = {
       APP.URL_SEPARATOR +
       movieObj.id +
       APP.URL_SEPARATOR +
-      movieObj._searchTerm +
+      encodeURIComponent(movieObj._searchTerm) +
       APP.URL_SEPARATOR +
       encodeURIComponent(movieObj._title);
     return urlBase;
@@ -603,6 +603,7 @@ const PAGE = {
   },
 
   updateScreen: function () {
+    log("[", SEARCH_PARAMS.keyword);
     PAGE.updateFieldValue(DOM.inputText, SEARCH_PARAMS.keyword);
   },
   displayError: function (err) {
@@ -646,10 +647,10 @@ const PAGE = {
     let hash = location.hash;
     if (hash) {
       let [, arg1, arg2, arg3, arg4] = hash.split(APP.URL_SEPARATOR);
-      arg1 = decodeURI(arg1 ? arg1 : "");
-      arg2 = decodeURI(arg2 ? arg2 : "");
-      arg3 = decodeURI(arg3 ? arg3 : "");
-      arg4 = decodeURI(arg4 ? arg4 : "");
+      arg1 = decodeURIComponent(arg1 ? arg1 : "");
+      arg2 = decodeURIComponent(arg2 ? arg2 : "");
+      arg3 = decodeURIComponent(arg3 ? arg3 : "");
+      arg4 = decodeURIComponent(arg4 ? arg4 : "");
       return { arg1, arg2, arg3, arg4 };
     }
   },
