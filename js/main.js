@@ -10,7 +10,7 @@ const UTILITY = {
 
   // returns image path for both posters and cast members
   createImagePath: function (posterPath = "", size = "w500") {
-    if (!posterPath) return "../images/image not found.png";
+    if (!posterPath) return "./images/image not found.png";
     return `https://image.tmdb.org/t/p/${size}/${posterPath}`;
   },
 
