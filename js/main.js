@@ -3,14 +3,19 @@ const log = console.log;
 
 //Utility functions
 const UTILITY = {
+  // internal
   addParamToURL: function (target, value) {
     if (!value) return target;
     return target + APP.URL_SEPARATOR + encodeURIComponent(value);
   },
+
+  // returns image path for both posters and cast members
   createImagePath: function (posterPath = "", size = "w500") {
-    if (!posterPath) return "../images/image not found.jpeg";
+    if (!posterPath) return "../images/image not found.png";
     return `https://image.tmdb.org/t/p/${size}/${posterPath}`;
   },
+
+  // generates a url like this: index.html#/tv/keyword/4
   generateIndexURL: function (selectedFilter, keywordText, page) {
     //example:  index.html#/tv|movie/keyword/1|2|3
     if (!page) page = 1;
@@ -25,8 +30,8 @@ const UTILITY = {
       page
     );
   },
+  // generates a url like this: credits.html#/movie/[ID]/credits/movie_title
   generateCreditsURL: function (movieObj) {
-    //example:  credits.html#/movie/[ID]/credits
     let urlBase = `./credits.html#`;
     if (!movieObj) return urlBase;
 
@@ -43,8 +48,8 @@ const UTILITY = {
     return urlBase;
   },
 
+  // called for credits page. Cast members are sorted by popularity (desc)
   sortCastArrByPopularity(arr) {
-    //CAST is sorted by popularity, descending
     if (!arr) return arr;
     arr.sort((a, b) => {
       if (!a.popularity) return 1;
@@ -58,6 +63,10 @@ const UTILITY = {
 
 const APP = {
   URL_SEPARATOR: "/",
+  POSTER_SIZE: "w500",
+  PROFILE_SIZE: "w185",
+  PAGINATION_SIZE: 5,
+  SHOW_DESCRIPTION_MAX_SIZE: 250,
   init: function () {
     //init PAGE object, read  DOM variables and register events
     PAGE.init();
@@ -77,9 +86,9 @@ const APP = {
   },
 };
 
-// SEARCH_PARAMS object is used by the SEARCH object.
-// Whether the search is triggered by the form, direct page access, or popHandler,
-// the SEARCH_PARAMS will hold the parameters.
+// A search can be triggered by: form submit, direct page access, popHandler or pagination,
+// SEARCH_PARAMS object will hold the parameters for all triggers
+// SEARCH object uses SEARCH_PARAMS object as source
 const SEARCH_PARAMS = {
   searchMovie: false,
   searchTV: false,
@@ -119,21 +128,20 @@ const SEARCH = {
     movieCreditsURL: "/3/movie/[ID]/credits",
     tvCreditsURL: "/3/tv/[ID]/credits",
   },
-  params: {
-    fromFormHandler: false,
-  },
+
+  // .success and .fail are functions
+  // both must be assigned before calling the fetch function.
   callback: {
-    //fetch() callback functions are set externally
     success: undefined,
     fail: undefined,
   },
 
   init: function () {
-    SEARCH.params.fromFormHandler = false;
     SEARCH.callback.fail = undefined;
     SEARCH.callback.success = undefined;
   },
 
+  // cleans dom-containers, execute the search and calls callback.success or callback.fail
   execute: function () {
     DOM.cleanContainers();
 
@@ -146,7 +154,7 @@ const SEARCH = {
         ? SEARCH.performCreditSearch()
         : DOM.setInnerHTML(DOM.errorContainer, PAGE.MESSAGES.MOVIE_ID_MISSING);
     } else {
-      //This should not happen
+      // This should not happen (ideally)
       DOM.setInnerHTML(DOM.errorContainer, PAGE.MESSAGES.UNEXPECTED_ERROR_1);
     }
   },
@@ -156,11 +164,13 @@ const SEARCH = {
       return "movie";
     if (SEARCH_PARAMS.searchTV || SEARCH_PARAMS.searchTVCredit) return "tv";
   },
+  // fixes requested page. If the conditions fail, it returns "1" by default
   getRequestedPage: function (val) {
     const page = parseInt(val);
     if (!page || page <= 0 || page > 1000) return 1;
     return page;
   },
+  // calls fetch function with a specific url and url-search-params for movie/show details
   performShowSearch: function () {
     PAGE.readPageURL();
     const page = SEARCH.getRequestedPage(SEARCH_PARAMS.requestedPage);
@@ -175,6 +185,7 @@ const SEARCH = {
     url.searchParams.append("api_key", SEARCH.api.key);
     SEARCH.doFetch(url);
   },
+  // calls fetch function with a specific url and url-search-params for cast members
   performCreditSearch: function () {
     let completeURL =
       SEARCH.api.baseURL +
@@ -187,6 +198,8 @@ const SEARCH = {
     url.searchParams.append("api_key", SEARCH.api.key);
     SEARCH.doFetch(url);
   },
+  // called by both credit and movie search.
+  // success and fail functions are set externally..
   doFetch: function (url) {
     fetch(url)
       .then((response) => {
@@ -197,18 +210,27 @@ const SEARCH = {
         if (SEARCH.callback.success) {
           SEARCH.callback.success(data);
         } else {
-          console.warn("Callback not found!");
+          //console.warn("Callback not found!");
+          DOM.setInnerHTML(DOM.errorContainer, PAGE.MESSAGES.NO_RESULT_FOUND);
         }
       })
       .catch((err) => {
         if (SEARCH.callback.fail) {
           SEARCH.callback.fail(err);
         } else {
-          console.warn("Callback not found!", err);
+          DOM.setInnerHTML(
+            DOM.errorContainer,
+            PAGE.MESSAGES.UNEXPECTED_ERROR_1
+          );
+          //console.warn("Callback not found!", err);
         }
       });
   },
 };
+
+// DOM stores all DOM elements on the page.
+// Both index.html and credits.html have similar or same elements.
+// DOM elements must have data-jamstack attribute. such as data-jamstack="error" represents error container.
 
 const DOM = {
   body: undefined,
@@ -219,57 +241,63 @@ const DOM = {
   selectTV: undefined,
   selectMovie: undefined,
   inputText: undefined,
-
   form: undefined,
   ATTRIBUTE: "data-jamstack",
 
   init: function () {
-    //read all the dom elements
+    // read all the dom elements
     DOM.body = document.querySelector("body");
 
-    // data-jamstack="container"
-    DOM.resultContainer = DOM.getElement(DOM.getAttrSelector("result-header"));
+    // data-jamstack="result-header"
+    DOM.resultContainer = DOM.getElement(DOM.createSelector("result-header"));
 
     // data-jamstack="error"
-    DOM.errorContainer = DOM.getElement(DOM.getAttrSelector("error"));
+    DOM.errorContainer = DOM.getElement(DOM.createSelector("error"));
 
-    //data-jamstack="message"
-    DOM.messageContainer = DOM.getElement(DOM.getAttrSelector("message"));
+    // data-jamstack="message"
+    DOM.messageContainer = DOM.getElement(DOM.createSelector("message"));
 
-    //data-jamstack="form"
-    DOM.form = DOM.getElement(DOM.getAttrSelector("form"));
+    // data-jamstack="form"
+    DOM.form = DOM.getElement(DOM.createSelector("form"));
 
-    //data-jamstack="search-tv"
-    DOM.selectTV = DOM.getElement(DOM.getAttrSelector("search-tv"));
+    // data-jamstack="search-tv"
+    DOM.selectTV = DOM.getElement(DOM.createSelector("search-tv"));
 
-    //data-jamstack="search-movie"
-    DOM.selectMovie = DOM.getElement(DOM.getAttrSelector("search-movie"));
+    // data-jamstack="search-movie"
+    DOM.selectMovie = DOM.getElement(DOM.createSelector("search-movie"));
 
-    //data-jamstack="search-input"
-    DOM.inputText = DOM.getElement(DOM.getAttrSelector("search-input"));
+    // data-jamstack="search-input"
+    DOM.inputText = DOM.getElement(DOM.createSelector("search-input"));
 
-    //there are two pagination elements
-    DOM.pageContainer = DOM.getElements(DOM.getAttrSelector("pagination"));
+    // there are two pagination elements
+    DOM.pageContainer = DOM.getElements(DOM.createSelector("pagination"));
+    if (DOM.pageContainer) {
+      DOM.pageContainer.forEach((pageContainer) => {
+        pageContainer.addEventListener("click", PAGE.handleNavigation);
+      });
+    }
 
-    //add event listeners
+    // add event listeners
     if (DOM.form) DOM.form.addEventListener("submit", PAGE.handleFormSubmit);
 
     if (DOM.selectTV)
       DOM.selectTV.addEventListener("change", PAGE.handleRadioSelection);
 
-    if (DOM.selectMovie) {
+    if (DOM.selectMovie)
       DOM.selectMovie.addEventListener("change", PAGE.handleRadioSelection);
-    }
 
     DOM.cleanContainers();
   },
+
+  // sets each message/error/result container content to blank before each search trigger.
   cleanContainers: function () {
     DOM.setInnerHTML(DOM.resultContainer, "");
     DOM.setInnerHTML(DOM.errorContainer, "");
     DOM.setInnerHTML(DOM.messageContainer, "");
     DOM.setArrInnerHTML(DOM.pageContainer, "");
   },
-  getAttrSelector(val) {
+  // functions below are utility functions.
+  createSelector(val) {
     return `[${DOM.ATTRIBUTE} = ${val}]`;
   },
   getElement(selector) {
@@ -286,26 +314,27 @@ const DOM = {
   setArrInnerHTML: function (element, value) {
     if (!element) return;
     if (!value) value = "";
-
-    element.forEach((el) => {
-      el.innerHTML = value;
-    });
+    element.forEach((el) => (el.innerHTML = value));
   },
 };
 
-// represents the current loaded page
+// PAGE object represents the current loaded page
+
 const PAGE = {
-  //CURRENT represents current page
+  // CURRENT represents current page values.
+  // The values can be set from the URL or from the search triggers.
   CURRENT: {
-    pageId: undefined,
-    shortURL: undefined,
-    pageNumber: undefined,
-    totalPages: undefined,
-    totalResults: undefined,
+    pageId: undefined, //main|credits
+    shortURL: undefined, //index.html | credits.html
+    pageNumber: undefined, //from the api
+    totalPages: undefined, //from the api
+    totalResults: undefined, //from the api
     isMainPage: undefined,
     isCreditsPage: undefined,
     urlType: undefined, //tv|movie
-    urlKeyword: undefined,
+    urlKeyword: undefined, //user keyword
+    showID: undefined,
+    showName: undefined,
   },
   MESSAGES: {
     WELCOME: `<h2 class="welcome--message font-h1">Welcome to JamStack!</h2>
@@ -313,12 +342,19 @@ const PAGE = {
     ENTER_MOVIE: `<h2 class="clean--margin">Enter a show or movie name</h2>`,
     MOVIE_ID_MISSING: `<h2 class="clean--margin">Invalid request. Movie ID is missing!</h2>`,
     UNEXPECTED_ERROR_1: `<h2 class="clean--margin">An unexpected error happened!</h2>`,
+    NO_RESULT_FOUND: `<h2 class="clean--margin">No result found</h2>`,
+    MOVIE_OVERVIEW_NA: "Overview Not Available",
+    RATING_NA: "Rating N/A",
+    NOT_AVAILABLE: "N/A",
+    FIRST_AIR_DATE_NA: "First airdate N/A",
+    NO_CAST_FOUND: "<h2>No cast member found</h2>",
   },
-  POSTER_SIZE: "w500",
-  PROFILE_SIZE: "w185",
+
   init: function () {
+    //read all dom elements and register events
     DOM.init();
 
+    //figure out which page we are on and read the url values
     if (DOM.body && DOM.body.hasAttribute("id")) {
       const id = DOM.body.attributes
         .getNamedItem("id")
@@ -335,6 +371,7 @@ const PAGE = {
       PAGE.readPageURL();
     } else {
       //error out because something is wrong with the page
+      DOM.setInnerHTML(DOM.errorContainer, PAGE.MESSAGES.UNEXPECTED_ERROR_1);
     }
   },
 
@@ -345,30 +382,31 @@ const PAGE = {
     return PAGE.CURRENT.isCreditsPage;
   },
   readPageURL: function () {
-    if (PAGE.CURRENT.isMainPage) {
-      const url = PAGE.readURL();
-      if (url) {
+    const url = PAGE.readURL(); // up to 4 parameters
+    if (url) {
+      if (PAGE.isMainPage()) {
         PAGE.CURRENT.urlType = url?.arg1 ? url.arg1 : "tv";
         PAGE.CURRENT.urlKeyword = url?.arg2 ? url.arg2 : "";
         PAGE.CURRENT.pageNumber = url?.arg3 ? url.arg3 : 1;
+      } else if (PAGE.isCreditsPage()) {
+        PAGE.CURRENT.urlType = url?.arg1 ? url.arg1 : "tv";
+        PAGE.CURRENT.showID = url?.arg2 ? url.arg2 : "";
+        PAGE.CURRENT.urlKeyword = url?.arg3 ? url.arg3 : "";
+        PAGE.CURRENT.showName = url?.arg4 ? url.arg4 : "";
       }
-    } else {
     }
   },
 
-  fireSearch: function (target) {
+  handleSearchEvent: function (target) {
     // can be triggered by:
     // 1. form-submit
     // 2. radio button selection within the form
-
-    //makes a search and then updates the hash
+    // this triggers a search, and then updates the hash
 
     if (!target) return;
-
     const formEl = target.closest("form");
     if (!formEl) return;
     if (!DOM.inputText) return;
-
     DOM.cleanContainers();
 
     const selectedFilterEl = formEl.querySelector("input[name=filter]:checked");
@@ -377,77 +415,93 @@ const PAGE = {
 
     const keywordText = DOM.inputText.value.toString().trim();
 
-    //if we are on credits page, a search triggered by form action should simply go back to index.html
+    // If event is triggered on the 'credits' page,
+    // then a URL is built, and the page is re-directed to index.html.
     if (PAGE.isCreditsPage()) {
       const url = UTILITY.generateIndexURL(selectedFilter, keywordText, 1);
       location.href = url;
       return;
     }
 
-    //we are on main page.. Trigger it for a tv or movie search.
-
+    // We are on main page.. Trigger the search for a tv show or a movie.
     SEARCH.init();
     SEARCH_PARAMS.searchTV = selectedFilter.includes("tv");
     SEARCH_PARAMS.searchMovie = selectedFilter.includes("movie");
     SEARCH_PARAMS.requestedPage = 1; //brand new searches always start from page 1
     SEARCH_PARAMS.keyword = keywordText;
-    SEARCH.params.fromFormHandler = true;
     SEARCH.callback.success = PAGE.displayMovies;
     SEARCH.callback.fail = PAGE.displayError;
     PAGE.updatePageHash(PAGE.CURRENT.shortURL, selectedFilter, keywordText, 1);
     SEARCH.execute();
   },
+
   handleRadioSelection: function (ev) {
     ev.preventDefault();
     if (DOM.form && DOM.inputText.value.toString().trim() != "")
-      PAGE.fireSearch(ev.currentTarget);
+      PAGE.handleSearchEvent(ev.target);
   },
   handleFormSubmit: function (ev) {
     if (ev) ev.preventDefault();
-    PAGE.fireSearch(ev.currentTarget);
+    PAGE.handleSearchEvent(ev.target);
   },
 
+  // This builds the pagination and dumps it into html (2 containers)
   buildPagination() {
     let html = "";
+    let paginationSize = PAGE.getPaginationSize();
 
-    const pages = [];
+    const possiblePages = [];
+    possiblePages[0] = PAGE.CURRENT.pageNumber - 2; //First
+    possiblePages[1] = PAGE.CURRENT.pageNumber - 1; //Previous
+    for (let index = 0; index < paginationSize; index++) {
+      possiblePages.push(PAGE.CURRENT.pageNumber + index);
+    }
 
-    pages[0] = PAGE.CURRENT.pageNumber - 2;
-    pages[1] = PAGE.CURRENT.pageNumber - 1;
-    pages[2] = PAGE.CURRENT.pageNumber;
-    pages[3] = PAGE.CURRENT.pageNumber + 1;
-    pages[4] = PAGE.CURRENT.pageNumber + 2;
-    pages[5] = PAGE.CURRENT.pageNumber + 3;
-    pages[6] = PAGE.CURRENT.pageNumber + 4;
-
-    const pages2 = pages.filter((item) => {
-      if (item <= 0) return false;
-      if (item > PAGE.CURRENT.totalPages) return false;
-      return true;
-    });
-
-    //max 5 pages to display
-    const pagesToDisplay = pages2.filter((item, index) => {
-      return index <= 4;
-    });
-    const firstPage = pagesToDisplay.at(0);
-    const lastPage = pagesToDisplay.at(-1);
+    // Exclude bad entries and limit the number of pages to configured setting
+    const pagesToDisplay = possiblePages
+      .filter((item) => {
+        if (item <= 0) return false;
+        if (item > PAGE.CURRENT.totalPages) return false;
+        return true;
+      })
+      .filter((_, index) => {
+        return index < paginationSize;
+      });
 
     const links = [];
-    links[0] = UTILITY.generateIndexURL(
-      PAGE.CURRENT.urlType,
-      PAGE.CURRENT.urlKeyword,
-      1
-    );
+    for (let index = 0; index < pagesToDisplay.length; index++) {
+      //const element = array[index];
+      links.push(
+        UTILITY.generateIndexURL(
+          PAGE.CURRENT.urlType,
+          PAGE.CURRENT.urlKeyword,
+          pagesToDisplay[index]
+        )
+      );
+    }
 
-    links[1] = UTILITY.generateIndexURL(
-      PAGE.CURRENT.urlType,
-      PAGE.CURRENT.urlKeyword,
-      Math.max(1, PAGE.CURRENT.pageNumber - 1)
-    );
+    const attrGoTo = "jamstackGoTo";
 
-    html = html + `<a class="btn btn-navigation" href=${links[0]}>First</a>`;
-    html = html + `<a class="btn btn-navigation" href=${links[1]}>Prev</a>`;
+    if (PAGE.CURRENT.pageNumber !== 1) {
+      html =
+        html +
+        `<a class="btn btn-navigation" data-${attrGoTo}="${1}" href="${UTILITY.generateIndexURL(
+          PAGE.CURRENT.urlType,
+          PAGE.CURRENT.urlKeyword,
+          1
+        )}">First</a>`;
+
+      html =
+        html +
+        `<a class="btn btn-navigation" data-${attrGoTo}="${Math.max(
+          1,
+          PAGE.CURRENT.pageNumber - 1
+        )}" href="${UTILITY.generateIndexURL(
+          PAGE.CURRENT.urlType,
+          PAGE.CURRENT.urlKeyword,
+          Math.max(1, PAGE.CURRENT.pageNumber - 1)
+        )}">Prev</a>`;
+    }
 
     for (let index = 0; index < pagesToDisplay.length; index++) {
       html =
@@ -456,83 +510,132 @@ const PAGE = {
           pagesToDisplay[index] == PAGE.CURRENT.pageNumber
             ? "pagination-active"
             : ""
-        }" href=${UTILITY.generateIndexURL(
-          PAGE.CURRENT.urlType,
-          PAGE.CURRENT.urlKeyword,
+        }" href="${links[index]}" data-${attrGoTo}="${pagesToDisplay[index]}">${
           pagesToDisplay[index]
-        )}>${pagesToDisplay[index]}</a>`;
+        }</a>`;
     }
 
-    links[2] = UTILITY.generateIndexURL(
-      PAGE.CURRENT.urlType,
-      PAGE.CURRENT.urlKeyword,
-      Math.min(PAGE.CURRENT.pageNumber + 1, PAGE.CURRENT.totalPages)
-    );
+    html =
+      html +
+      `<a class="btn btn-navigation" data-${attrGoTo}="${Math.min(
+        PAGE.CURRENT.pageNumber + 1,
+        PAGE.CURRENT.totalPages
+      )}" href="${UTILITY.generateIndexURL(
+        PAGE.CURRENT.urlType,
+        PAGE.CURRENT.urlKeyword,
+        Math.min(PAGE.CURRENT.pageNumber + 1, PAGE.CURRENT.totalPages)
+      )}">Next</a>`;
+    html =
+      html +
+      `<a class="btn btn-navigation" data-${attrGoTo}="${
+        PAGE.CURRENT.totalPages
+      }" href="${UTILITY.generateIndexURL(
+        PAGE.CURRENT.urlType,
+        PAGE.CURRENT.urlKeyword,
+        PAGE.CURRENT.totalPages
+      )}">Last</a>`;
 
-    links[3] = UTILITY.generateIndexURL(
-      PAGE.CURRENT.urlType,
-      PAGE.CURRENT.urlKeyword,
-      PAGE.CURRENT.totalPages
-    );
-    html = html + `<a class="btn btn-navigation" href=${links[2]}>Next</a>`;
-    html = html + `<a class="btn btn-navigation" href=${links[3]}}>Last</a>`;
     DOM.setArrInnerHTML(DOM.pageContainer, html);
   },
+  // returns how many "page" buttons will show on the pagination container
+  getPaginationSize: function () {
+    const size = Number.parseInt(APP.PAGINATION_SIZE);
+    if (!size || size <= 0 || size > 1000) return 5;
+    return size;
+  },
+  // Called when pagination container is clicked.
+  // In order to continue, and the target must be an "a" link and it must have a certain data attribute
+  handleNavigation: function (ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (!ev.target) return;
+    if (ev.target.tagName === "A") {
+      if (ev.target.dataset.jamstackgoto) {
+        let goTo = Number.parseInt(ev.target.dataset.jamstackgoto);
+        goTo ? PAGE.navigateTo(goTo) : "";
+      }
+    }
+  },
+  // navigates to desired page and updates the hash
+  navigateTo: function (page) {
+    SEARCH_PARAMS.requestedPage = page;
+    SEARCH.callback.success = PAGE.displayMovies;
+    SEARCH.callback.fail = PAGE.displayError;
+    PAGE.updatePageHash(
+      PAGE.CURRENT.shortURL,
+      PAGE.CURRENT.urlType,
+      PAGE.CURRENT.urlKeyword,
+      page
+    );
+    SEARCH.execute();
+  },
 
+  // called by fetch within the search function
   displayMovies: function (data) {
+    let html = "";
+
     PAGE.CURRENT.pageNumber = data.page ? data.page : 1;
     PAGE.CURRENT.totalResults = data.total_results ? data.total_results : 1;
     PAGE.CURRENT.totalPages = data.total_pages ? data.total_pages : 1;
-    let buffer = "";
-    //built pagination based on this
+
+    //if there is data, built the pagination and data-grid
     if (data.results && data.results.length >= 1) {
       PAGE.buildPagination();
 
-      //build the grid
-
-      buffer += data.results.map((show) => PAGE.showToHTML(show)).join("");
-      buffer = `<ul class="show-container">${buffer}</ul>`;
-      DOM.setInnerHTML(DOM.resultContainer, buffer);
+      html += data.results.map((show) => PAGE.showToHTML(show)).join("");
+      html = `<ul class="show-container">${html}</ul>`;
+      DOM.setInnerHTML(DOM.resultContainer, html);
     } else {
-      buffer += `<h2 class="clean--margin">No result found</h2>`;
-      DOM.setInnerHTML(DOM.messageContainer, buffer);
+      html += PAGE.MESSAGES.NO_RESULT_FOUND;
+      DOM.setInnerHTML(DOM.messageContainer, html);
     }
   },
+  // create a card view for a show or movie
   showToHTML(show) {
     if (!show) return "";
-    let output = "";
-    const title = SEARCH_PARAMS.searchTV ? show.name : show.title;
-    const type = SEARCH.getIdentifier(); //tv | show
+    let html = "";
+    const showTitle = SEARCH_PARAMS.searchTV ? show.name : show.title;
+    const showType = SEARCH.getIdentifier(); //tv | show
 
-    show._type = type;
-    show._title = title;
+    // custom properties added.. They are used in URL creation in another function
+    show._type = showType;
+    show._title = showTitle;
     show._searchTerm = SEARCH_PARAMS.keyword;
-    let overview = show.overview ? show.overview : "Overview N/A";
-    if (overview.length > 250) {
-      overview = overview.substr(0, 250) + "....";
-    }
-    const voteAverage = show.vote_average
-      ? `${show.vote_average} / 10`
-      : "Rating N/A";
+    let overview = show.overview
+      ? show.overview
+      : PAGE.MESSAGES.MOVIE_OVERVIEW_NA;
 
-    output = `
+    //if the overview is too long, cut it short.
+    if (overview.length > APP.SHOW_DESCRIPTION_MAX_SIZE)
+      overview = overview.substr(0, APP.SHOW_DESCRIPTION_MAX_SIZE) + "...";
+
+    const voteAverage = show.vote_average
+      ? `${show.vote_average} / <small>10</small>`
+      : PAGE.MESSAGES.RATING_NA;
+
+    const firstAirDate = show.first_air_date
+      ? show.first_air_date
+      : PAGE.MESSAGES.FIRST_AIR_DATE_NA;
+
+    html = `
     <li class="show-card shadow-1" data-id="${
       show.id
-    }" data-type="${type}">        
+    }" data-type="${showType}">        
           <img class="show-image shadow-1" src="${UTILITY.createImagePath(
             show.poster_path,
-            PAGE.POSTER_SIZE
-          )}" alt="Feature poster of movie/tv show ${title}"/>
-        <h2 class="show-name">${title}</h2>
+            APP.POSTER_SIZE
+          )}" alt="Feature poster of movie/tv show ${showTitle}"/>
+        <h2 class="show-name">${showTitle}</h2>
         <p class="show-overview">${overview}</p>
+        <p class="show-air-date">${firstAirDate}</p>
         <div class="show-rating">${voteAverage}</div>
-        <div><a class="btn show-card-btn" href="${UTILITY.generateCreditsURL(
+        <div><a class="btn show-card-btn " href="${UTILITY.generateCreditsURL(
           show
-        )}">See Cast</a></div>
+        )}" aria-label="Click to view cast details of ${showTitle}">See Cast</a></div>
       </li>`;
-    return output;
+    return html;
   },
-
+  // create a card view for a show or movie
   creditsToHTML: function (data) {
     let html = "";
     const type = SEARCH.getIdentifier(); //tv | show
@@ -542,27 +645,23 @@ const PAGE = {
         .map((item) => {
           let popularity_class = "NA";
           if (item.popularity) {
-            if (item.popularity < 10) {
-              popularity_class = "low";
-            } else if (item.popularity < 30) {
-              popularity_class = "medium";
-            } else {
-              popularity_class = "high";
-            }
+            popularity_class = "high";
+            if (item.popularity < 10) popularity_class = "low";
+            else if (item.popularity < 30) popularity_class = "medium";
           }
 
-          const txt = `<li class="credits-card" data-id="${
+          const txt = `<li class="credits-card shadow-1" data-id="${
             item.id
           }  data-type="${type}"">
              
           <img class="credit-image  shadow-1" src="${UTILITY.createImagePath(
             item?.profile_path,
-            PAGE.PROFILE_SIZE
+            APP.PROFILE_SIZE
           )}" alt="${item.name} profile image"/>
           
           <h2 class="credit__name">${item.name}</h2>
           <p class="credit__character">${
-            item.character ? `as ${item.character}` : ""
+            item.character ? `as ${item.character}` : " info N/A"
           }</p>
           <p class="credit__popularity">Popularity: <span class="credit__popularity__score
           credit__popularity__score--${popularity_class}">${
@@ -574,38 +673,33 @@ const PAGE = {
         })
         .join("");
     } else {
-      log("not array");
+      html = PAGE.MESSAGES.NO_RESULT_FOUND;
     }
     return html;
   },
-  isFavorite: function () {},
 
   displayCredits: function (data) {
-    //TODO:
     if (!data) return;
 
+    // Cast is sorted by popularity, descending
     data.cast = UTILITY.sortCastArrByPopularity(data?.cast);
 
     let html = "";
 
     if (data.cast && data.cast.length >= 1) {
-      html += `<h2>Cast</h2>`;
+      if (PAGE.CURRENT.showName)
+        html += `<h2 class="credits-show-name">${PAGE.CURRENT.showName}<h2>`;
 
+      html += `<h2 class="credits-header">Cast members</h2>`;
       html += `<ul class="credit-container">`;
       html += PAGE.creditsToHTML(data.cast);
       html += `</ul>`;
       DOM.setInnerHTML(DOM.resultContainer, html);
     } else {
-      //error text
-      html = "<h2>No cast member found!</h2>";
-      DOM.setInnerHTML(DOM.messageContainer, html);
+      DOM.setInnerHTML(DOM.messageContainer, PAGE.MESSAGES.NO_CAST_FOUND);
     }
   },
 
-  updateScreen: function () {
-    log("[", SEARCH_PARAMS.keyword);
-    PAGE.updateFieldValue(DOM.inputText, SEARCH_PARAMS.keyword);
-  },
   displayError: function (err) {
     if (!err) return;
 
@@ -618,9 +712,6 @@ const PAGE = {
         const errStatus = err.status ? err.status : "";
         const errStatusText = err.statusText ? err.statusText : "";
         const errMessage = err.message ? err.message : "";
-
-        //if () errorMessage += ` Status: `
-
         errorMessage = `Network Error ${errStatus} - ${errStatusText} ${errMessage}`;
         break;
       case "WebError":
@@ -632,17 +723,7 @@ const PAGE = {
     DOM.setInnerHTML(DOM.errorContainer, errorMessage);
   },
 
-  updateFieldValue: function (elList, val) {
-    //works for lists only
-    if (!elList) return;
-    if (!val) val = "";
-
-    elList.forEach((field) => {
-      field.value = val;
-    });
-  },
-  //URL can have up to 4 parameters.
-  //For this project, it can have 3 params only.
+  // URLs can have up to 4 parameters.
   readURL: function () {
     let hash = location.hash;
     if (hash) {
@@ -667,34 +748,34 @@ const PAGE = {
     PAGE.firePopSearch();
   },
   firePopSearch: function () {
-    //firePopSearch is triggered by
-    //1. popEvent
-    //2. URL reload
+    // firePopSearch is triggered by: 1) popEvent  2) URL reload
 
-    const urlValues = PAGE.readURL();
-    log("url", urlValues);
+    PAGE.readPageURL();
 
     SEARCH.init();
-    SEARCH.params.fromFormHandler = false;
     if (PAGE.isMainPage()) {
-      SEARCH_PARAMS.searchTV = urlValues?.arg1.includes("tv");
-      SEARCH_PARAMS.searchMovie = urlValues?.arg1.includes("movie");
+      SEARCH_PARAMS.searchTV = PAGE.CURRENT.urlType.includes("tv");
+      SEARCH_PARAMS.searchMovie = PAGE.CURRENT.urlType.includes("movie");
       if (!SEARCH_PARAMS.searchMovie && !SEARCH_PARAMS.searchTV)
         SEARCH_PARAMS.searchMovie = true;
-      SEARCH_PARAMS.keyword = urlValues?.arg2;
-      if (!SEARCH_PARAMS.keyword) {
-        SEARCH_PARAMS.keyword = "";
-      }
-      SEARCH_PARAMS.requestedPage = SEARCH.getRequestedPage(urlValues?.arg3);
+      SEARCH_PARAMS.keyword = PAGE.CURRENT.urlKeyword
+        ? PAGE.CURRENT.urlKeyword
+        : "";
+
+      SEARCH_PARAMS.requestedPage = SEARCH.getRequestedPage(
+        PAGE.CURRENT.pageNumber
+      );
       SEARCH.callback.success = PAGE.displayMovies;
     } else if (PAGE.isCreditsPage()) {
-      SEARCH_PARAMS.searchTVCredit = urlValues?.arg1.includes("tv");
-      SEARCH_PARAMS.searchMovieCredit = urlValues?.arg1.includes("movie");
-      SEARCH_PARAMS.movieShowID = urlValues?.arg2;
-      SEARCH_PARAMS.keyword = urlValues?.arg3;
+      SEARCH_PARAMS.searchTVCredit = PAGE.CURRENT.urlType.includes("tv");
+      SEARCH_PARAMS.searchMovieCredit = PAGE.CURRENT.urlType.includes("movie");
+      SEARCH_PARAMS.movieShowID = PAGE.CURRENT.showID;
+      SEARCH_PARAMS.keyword = PAGE.CURRENT.urlKeyword
+        ? PAGE.CURRENT.urlKeyword
+        : "";
       SEARCH.callback.success = PAGE.displayCredits;
     }
-    log("search params", SEARCH_PARAMS);
+
     SEARCH.callback.fail = PAGE.displayError;
 
     //fill form values
