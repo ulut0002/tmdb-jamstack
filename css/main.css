@@ -153,6 +153,10 @@ body {
   flex-direction: column;
 }
 
+main {
+  flex: 1;
+}
+
 .shadow-1 {
   box-shadow: 0 0.5rem 0.5rem #0005;
 }
@@ -253,9 +257,11 @@ fieldset {
   display: inline-block;
   text-align: center;
   font-family: "Bungee";
-  font-size: var(--font-h1);
+  font-size: var(--font-h4);
   color: var(--color-yellow);
   text-decoration: none;
+  margin: 0;
+  padding: 0;
 }
 
 .search-container {
@@ -266,7 +272,7 @@ fieldset {
 .search-form {
   min-width: 100%;
   display: flex;
-  row-gap: 1rem;
+
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: center;
@@ -611,6 +617,15 @@ MEDIA QUERIES
   }
   .credit-container {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .search-form {
+    /* row-gap: 1rem; */
+  }
+
+  .header--title,
+  .header--title:hover,
+  .header--title:focus-visible {
+    color: var(--color-yellow);
   }
 }
 
