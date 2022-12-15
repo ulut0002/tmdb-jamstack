@@ -363,7 +363,7 @@ fieldset {
 }
 
 .search-form-radio {
-  padding: 2rem;
+  /* padding: 2rem; */
   color: var(--accent-color);
 }
 
