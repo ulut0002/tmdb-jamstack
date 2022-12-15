@@ -1,5 +1,4 @@
 import { NetworkError, delay, WebError } from "./utils.js";
-const log = console.log;
 
 //Utility functions
 const UTILITY = {
@@ -210,7 +209,6 @@ const SEARCH = {
         if (SEARCH.callback.success) {
           SEARCH.callback.success(data);
         } else {
-          //console.warn("Callback not found!");
           DOM.setInnerHTML(DOM.errorContainer, PAGE.MESSAGES.NO_RESULT_FOUND);
         }
       })
@@ -222,7 +220,6 @@ const SEARCH = {
             DOM.errorContainer,
             PAGE.MESSAGES.UNEXPECTED_ERROR_1
           );
-          //console.warn("Callback not found!", err);
         }
       });
   },
