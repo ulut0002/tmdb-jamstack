@@ -344,6 +344,7 @@ const PAGE = {
     RATING_NA: "Rating N/A",
     NOT_AVAILABLE: "N/A",
     FIRST_AIR_DATE_NA: "First airdate N/A",
+    RELEASE_DATE_NA: "Release date N/A",
     NO_CAST_FOUND: "<h2>No cast member found</h2>",
   },
 
@@ -610,9 +611,16 @@ const PAGE = {
       ? `${show.vote_average} / <small>10</small>`
       : PAGE.MESSAGES.RATING_NA;
 
-    const firstAirDate = show.first_air_date
-      ? show.first_air_date
-      : PAGE.MESSAGES.FIRST_AIR_DATE_NA;
+    let firstAirDate = PAGE.MESSAGES.NOT_AVAILABLE;
+    if (SEARCH_PARAMS.searchTV) {
+      firstAirDate = show.first_air_date
+        ? show.first_air_date
+        : PAGE.MESSAGES.FIRST_AIR_DATE_NA;
+    } else {
+      firstAirDate = show.release_date
+        ? show.release_date
+        : PAGE.MESSAGES.RELEASE_DATE_NA;
+    }
 
     html = `
     <li class="show-card shadow-1" data-id="${
